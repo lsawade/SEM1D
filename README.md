@@ -91,9 +91,47 @@ stiffness_local = -sum(wgll .* shear(:, ispec) .* ...
 daccel = F_global ./ mass_global;
 ```
 
+## Heterogeneous Models
+
+The code supports **spatially variable material properties** through user-defined functions. By default, the model is homogeneous with ρ = 1 and μ = 1.
+
+### Defining Material Properties
+
+Edit the material property functions in `wave.m` (lines 70-73):
+
+```matlab
+% Density as a function of x
+get_density = @(x) ones(size(x));  % Default: homogeneous
+
+% Shear modulus as a function of x
+get_shear = @(x) ones(size(x));    % Default: homogeneous
+```
+
+### Example Models
+
+**Two-layer model** (interface at x = 50):
+```matlab
+get_density = @(x) 1.0 + 0.5 * (x > 50);  % ρ₁=1.0, ρ₂=1.5
+get_shear = @(x) 1.0 + 1.0 * (x > 50);    % μ₁=1.0, μ₂=2.0
+```
+
+**Gradient model:**
+```matlab
+get_density = @(x) 1.0 + 0.01 * x;
+get_shear = @(x) 1.0 + 0.02 * x;
+```
+
+**Low-velocity zone:**
+```matlab
+get_density = @(x) 1.0 - 0.3 * exp(-0.01 * (x - 50).^2);
+get_shear = @(x) 1.0 - 0.5 * exp(-0.01 * (x - 50).^2);
+```
+
+A figure showing the material properties will be displayed when the simulation starts.
+
 ## Parameters
 
-Defined in `wave.m`:
+Simulation parameters defined in `wave.m`:
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
@@ -103,7 +141,7 @@ Defined in `wave.m`:
 | `NSTEP` | 2000 | Number of time steps |
 | `DT` | 0.25 | Time step (seconds) |
 | `LENGTH` | 100 | Domain length |
-| `DENSITY` | 1 | Material density |
-| `SHEARMODULUS` | 1 | Shear modulus |
 
 **Total simulation time:** 500 seconds (2000 steps × 0.25 s)
+
+**Material properties** (ρ, μ) are defined via functions `get_density(x)` and `get_shear(x)`. See [Heterogeneous Models](#heterogeneous-models) section.

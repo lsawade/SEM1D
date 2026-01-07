@@ -62,8 +62,29 @@ FIXED_BC = true;
 
 % Model parameters (SI)
 LENGTH = 100;
-DENSITY = 1;
-SHEARMODULUS = 1;
+
+%% Define material properties as functions of position
+% Users can modify these functions to create heterogeneous models
+
+% Density as a function of x
+get_density = @(x) ones(size(x));  % Default: homogeneous with rho = 1
+
+% Shear modulus as a function of x
+get_shear = @(x) ones(size(x));    % Default: homogeneous with mu = 1
+
+% Example heterogeneous models (uncomment to use):
+%
+% % Two-layer model (interface at x = 50)
+% get_density = @(x) 1.0 + 0.5 * (x > 50);
+% get_shear = @(x) 1.0 + 1.0 * (x > 50);
+%
+% % Gradient model
+% get_density = @(x) 1.0 + 0.01 * x;
+% get_shear = @(x) 1.0 + 0.02 * x;
+%
+% % Low-velocity zone
+% get_density = @(x) 1.0 - 0.3 * exp(-0.01 * (x - 50).^2);
+% get_shear = @(x) 1.0 - 0.5 * exp(-0.01 * (x - 50).^2);
 
 %% Setup derivative matrix and GLL points
 
@@ -87,8 +108,13 @@ jacobian = zeros(NGLL, NSPEC);
 
 for ispec = 1:NSPEC
     for i = 1:NGLL
-        rho(i, ispec) = DENSITY;
-        shear(i, ispec) = SHEARMODULUS;
+        % Compute physical coordinate at this GLL point
+        x_gll = 0.5*(1-xigll(i))*x1(ispec) + 0.5*(1+xigll(i))*x2(ispec);
+
+        % Evaluate material properties at this position
+        rho(i, ispec) = get_density(x_gll);
+        shear(i, ispec) = get_shear(x_gll);
+
         % These Jacobians only work because the mesh is not deformed
         inverse_jacobian(i, ispec) = 2.0 / (x2(ispec) - x1(ispec));
         jacobian(i, ispec) = (x2(ispec) - x1(ispec)) / 2.0;
@@ -107,14 +133,34 @@ for ispec = 1:NSPEC
     end
 end
 
-% Get the global grid points
+% Get the global grid points and material properties at global points
 x = zeros(NGLOB, 1);
+rho_global = zeros(NGLOB, 1);
+shear_global = zeros(NGLOB, 1);
 for ispec = 1:NSPEC
     for i = 1:NGLL
         iglob = ibool(i, ispec);
         x(iglob) = 0.5*(1-xigll(i))*x1(ispec) + 0.5*(1+xigll(i))*x2(ispec);
+        rho_global(iglob) = rho(i, ispec);
+        shear_global(iglob) = shear(i, ispec);
     end
 end
+
+%% Visualize material properties
+figure('Position', [100, 600, 900, 400]);
+subplot(2,1,1);
+plot(x, rho_global, '-b', 'LineWidth', 2);
+xlabel('Position (x)');
+ylabel('Density (\rho)');
+title('Material Properties');
+grid on;
+
+subplot(2,1,2);
+plot(x, shear_global, '-r', 'LineWidth', 2);
+xlabel('Position (x)');
+ylabel('Shear Modulus (\mu)');
+grid on;
+drawnow;
 
 %% Calculate the global mass matrix 'mass_global'
 % SOLUTION: Assemble global mass matrix from local contributions
@@ -152,6 +198,7 @@ elseif bc_type == BOTH_NEUMANN
 else
     error('Unsupported BC type: %d', bc_type);
 end
+
 
 %% Setup real-time visualization
 fig = figure('Position', [100, 100, 900, 500]);
