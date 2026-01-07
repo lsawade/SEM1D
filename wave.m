@@ -248,26 +248,26 @@ for itime = 1:NSTEP
         for i = 1:NGLL
             iglob = ibool(i, ispec);
             f_local = 0.0;
-
+    
             for j = 1:NGLL
                 iglobj = ibool(j, ispec);
-
+    
                 % Compute stiffness K_ij = ∫ μ * (∂φ_i/∂x) * (∂φ_j/∂x) dx
                 stiffness_local = 0.0;
                 for k = 1:NGLL
                     % Compute gradients at quadrature point k
                     dphi_i_dx = hprime(i, k) * inverse_jacobian(k, ispec);
                     dphi_j_dx = hprime(j, k) * inverse_jacobian(k, ispec);
-
+    
                     % GLL quadrature integration
                     integrand = shear(k, ispec) * dphi_i_dx * dphi_j_dx;
                     stiffness_local = stiffness_local + wgll(k) * integrand * jacobian(k, ispec);
                 end
-
+    
                 % Apply stiffness to displacement (negative from integration by parts)
                 f_local = f_local - stiffness_local * displ(iglobj);
             end
-
+    
             % Assemble into global force vector
             F_global(iglob) = F_global(iglob) + f_local;
         end
