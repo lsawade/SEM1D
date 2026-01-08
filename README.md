@@ -83,11 +83,24 @@ accel = zeros(NGLOB, 1);
 - **Neumann:** Traction-free (natural) boundary conditions
 
 ### 5. Solver
-Assembles global force vector and solves for acceleration:
+Computes stiffness matrix and solves for acceleration using the weak form:
+
+**F**<sub>*i*</sub> = ∫ μ(x) · (∂φ<sub>*i*</sub>/∂x) · (∂u/∂x) dx
+
 ```matlab
-stiffness_local = -sum(wgll .* shear(:, ispec) .* ...
-                     inverse_jacobian(:, ispec) .* ...
-                     hprime(i, :)' .* hprime(j, :)');
+% Compute stiffness K_ij = ∫ μ * (∂φ_i/∂x) * (∂φ_j/∂x) dx
+stiffness_local = 0.0;
+for k = 1:NGLL
+    % Compute gradients at quadrature point k
+    dphi_i_dx = hprime(i, k) * inverse_jacobian(k, ispec);
+    dphi_j_dx = hprime(j, k) * inverse_jacobian(k, ispec);
+
+    % GLL quadrature integration
+    integrand = shear(k, ispec) * dphi_i_dx * dphi_j_dx;
+    stiffness_local = stiffness_local + wgll(k) * integrand * jacobian(k, ispec);
+end
+
+% Solve for acceleration: a = F / M
 daccel = F_global ./ mass_global;
 ```
 
